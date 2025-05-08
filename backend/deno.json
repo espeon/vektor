@@ -1,0 +1,12 @@
+{
+  "tasks": {
+    "dev": "deno run --allow-net --allow-env --allow-ffi --allow-read src/main.ts",
+    "test": "deno test --allow-net",
+    "lint": "deno lint"
+  },
+  "imports": {
+    "@huggingface/transformers": "npm:@huggingface/transformers@^3.4.0",
+    "@qdrant/js-client-rest": "npm:@qdrant/js-client-rest@^1.13.0",
+    "hono": "npm:hono@^4.7.4"
+  }
+}

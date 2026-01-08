@@ -2,19 +2,30 @@ Welcome to your new TanStack app!
 
 # Getting Started
 
-To run this application:
+To run this application with Deno:
 
 ```bash
-pnpm install
-pnpm start  
+deno task frontend:dev
+```
+
+Or from the frontend directory:
+
+```bash
+deno task dev
 ```
 
 # Building For Production
 
-To build this application for production:
+To build this application for production with Deno:
 
 ```bash
-pnpm build
+deno task frontend:build
+```
+
+Or from the frontend directory:
+
+```bash
+deno task build
 ```
 
 ## Testing
@@ -22,7 +33,13 @@ pnpm build
 This project uses [Vitest](https://vitest.dev/) for testing. You can run the tests with:
 
 ```bash
-pnpm test
+deno task frontend:test
+```
+
+Or from the frontend directory:
+
+```bash
+deno task test
 ```
 
 ## Styling

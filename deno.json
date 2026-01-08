@@ -1,4 +1,4 @@
 {
-  "workspace": ["./frontend", "./backend"],
+  "workspace": ["./frontend"],
   "nodeModulesDir": "auto"
 }

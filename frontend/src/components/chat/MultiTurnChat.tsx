@@ -60,12 +60,19 @@ export function MultiTurnChatStream({
   const isMobile = useMediaQuery('(max-width: 768px)');
 
   useEffect(() => {
+    const savedModel = localStorage.getItem('selectedModel');
+    if (savedModel) {
+      setSelectedModel(savedModel);
+    }
+  }, []);
+
+  useEffect(() => {
     const fetchModels = async () => {
       try {
         const response = await fetch('http://ami:9292/v1/models');
         const data = await response.json();
         setModels(data.data || []);
-        if (data.data && data.data.length > 0) {
+        if (!selectedModel && data.data && data.data.length > 0) {
           setSelectedModel(data.data[0].id);
         }
       } catch (error) {
@@ -74,7 +81,7 @@ export function MultiTurnChatStream({
     };
 
     fetchModels();
-  }, []);
+  }, [selectedModel]);
 
   useEffect(() => {
     if (initialQuery && messages.length === 0) {
@@ -271,6 +278,7 @@ export function MultiTurnChatStream({
                       key={model.id}
                       onClick={() => {
                         setSelectedModel(model.id);
+                        localStorage.setItem('selectedModel', model.id);
                         setIsModelDropdownOpen(false);
                       }}
                       className={cn(

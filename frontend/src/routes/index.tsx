@@ -1,13 +1,29 @@
-import { createFileRoute, Link } from '@tanstack/react-router';
+import { createFileRoute } from '@tanstack/react-router';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { Search } from '@/components/home/Search';
 import { Suggestions } from '@/components/home/Suggestions';
+import { ModelSelector } from '@/components/home/ModelSelector';
+import { useState, useEffect } from 'react';
 
 export const Route = createFileRoute('/')({
   component: App,
 });
 
 function App() {
+  const [selectedModel, setSelectedModel] = useState('');
+
+  useEffect(() => {
+    const savedModel = localStorage.getItem('selectedModel');
+    if (savedModel) {
+      setSelectedModel(savedModel);
+    }
+  }, []);
+
+  const handleModelSelect = (modelId: string) => {
+    setSelectedModel(modelId);
+    localStorage.setItem('selectedModel', modelId);
+  };
+
   return (
     <main className="flex min-h-screen flex-col items-center justify-center p-4 md:p-24 bg-background">
       <div className="absolute top-4 right-4">
@@ -26,9 +42,16 @@ function App() {
             <span className="text-teal-800 dark:text-teal-400">real</span>{' '}
             insights from{' '}
             <span className="text-sky-800 dark:text-sky-400">
-              the ATmosphere.
+              ATmosphere.
             </span>{' '}
           </div>
+        </div>
+
+        <div className="flex justify-center">
+          <ModelSelector
+            selectedModel={selectedModel}
+            onModelSelect={handleModelSelect}
+          />
         </div>
 
         <Search />

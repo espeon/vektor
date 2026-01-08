@@ -1,14 +1,14 @@
-import { useEffect, useState, useRef } from 'react';
-import { X } from 'lucide-react';
-import { SourceItem } from '@/components/chat/SourceItem';
-import { Button } from '@/components/ui/button';
-import { cn } from '@/lib/utils';
-import { useMediaQuery } from '@/hooks/use-media-query';
-import ExpandableInput from '@/components/chat/TextArea';
-import { AssistantMessage } from './AssistantMessage';
-import type { Emoji } from './TextArea';
-import ProgressiveBlur from '../ui/progressive-blur';
-import { usePreferences } from '@/providers/PreferencesProvider';
+import { useEffect, useState, useRef } from "react";
+import { X } from "lucide-react";
+import { SourceItem } from "@/components/chat/SourceItem";
+import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
+import { useMediaQuery } from "@/hooks/use-media-query";
+import ExpandableInput from "@/components/chat/TextArea";
+import { AssistantMessage } from "./AssistantMessage";
+import type { Emoji } from "./TextArea";
+import ProgressiveBlur from "../ui/progressive-blur";
+import { usePreferences } from "@/providers/PreferencesProvider";
 
 interface Model {
   id: string;
@@ -31,7 +31,7 @@ interface OpenAIStreamChunk {
 }
 
 interface Message {
-  role: 'user' | 'assistant' | 'system';
+  role: "user" | "assistant" | "system";
   content: string;
   thinking?: string;
   sources?: any[];
@@ -47,15 +47,15 @@ export function MultiTurnChatStream({
   const { preferences } = usePreferences();
   const [isLoading, setIsLoading] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
-  const [currentUserInput, setCurrentUserInput] = useState(initialQuery || '');
-  const [thinking, setThinking] = useState('');
+  const [currentUserInput, setCurrentUserInput] = useState(initialQuery || "");
+  const [thinking, setThinking] = useState("");
   const [isThinking, setIsThinking] = useState(false);
   const [isThinkingExpanded, setIsThinkingExpanded] = useState(true);
   const [sources, setSources] = useState<any[]>([]);
   const [isSourcesOpen, setIsSourcesOpen] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
-  const isMobile = useMediaQuery('(max-width: 768px)');
+  const isMobile = useMediaQuery("(max-width: 768px)");
 
   useEffect(() => {
     if (initialQuery && messages.length === 0) {
@@ -64,39 +64,39 @@ export function MultiTurnChatStream({
   }, [initialQuery]);
 
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
   const handleSendMessage = async (input = currentUserInput) => {
     if (!input.trim() || isLoading) return;
 
     const userMessage: Message = {
-      role: 'user',
+      role: "user",
       content: input,
     };
 
     setMessages((prev) => [
       ...prev,
       userMessage,
-      { role: 'assistant', content: '' },
+      { role: "assistant", content: "" },
     ]);
 
-    setCurrentUserInput('');
+    setCurrentUserInput("");
     setIsLoading(true);
-    setThinking('');
+    setThinking("");
     setIsThinking(false);
     setSources([]);
 
     const assistantMessageIndex = messages.length + 1;
 
-    let currentResponse = '';
-    let currentThinking = '';
+    let currentResponse = "";
+    let currentThinking = "";
     let currentSources: any[] = [];
     let inThinkingBlock = false;
 
     try {
-      if (!selectedModel) {
-        throw new Error('No model selected');
+      if (!preferences.selectedModel) {
+        throw new Error("No model selected");
       }
 
       const conversationHistory = messages.map((msg) => ({
@@ -105,14 +105,14 @@ export function MultiTurnChatStream({
       }));
 
       conversationHistory.push({
-        role: 'user',
+        role: "user",
         content: input,
       });
 
-      const response = await fetch('http://ami:9292/v1/chat/completions', {
-        method: 'POST',
+      const response = await fetch("http://ami:9292/v1/chat/completions", {
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
         body: JSON.stringify({
           model: preferences.selectedModel,
@@ -122,7 +122,7 @@ export function MultiTurnChatStream({
       });
 
       if (!response.body) {
-        throw new Error('No response body');
+        throw new Error("No response body");
       }
 
       const reader = response.body.getReader();
@@ -136,24 +136,24 @@ export function MultiTurnChatStream({
         }
 
         const chunk = decoder.decode(value);
-        const lines = chunk.split('\n').filter((line) => line.trim() !== '');
+        const lines = chunk.split("\n").filter((line) => line.trim() !== "");
 
         for (const line of lines) {
           try {
-            if (line.startsWith('data: ')) {
+            if (line.startsWith("data: ")) {
               const jsonStr = line.slice(6);
-              if (jsonStr.trim() === '[DONE]') continue;
+              if (jsonStr.trim() === "[DONE]") continue;
 
               const parsed: OpenAIStreamChunk = JSON.parse(jsonStr);
 
               if (parsed.choices && parsed.choices.length > 0) {
                 const delta = parsed.choices[0].delta;
-                const content = delta.content || '';
+                const content = delta.content || "";
 
-                if (content === '```thinking') {
+                if (content === "```thinking") {
                   inThinkingBlock = true;
                   continue;
-                } else if (content === '```') {
+                } else if (content === "```") {
                   inThinkingBlock = false;
                   continue;
                 }
@@ -171,7 +171,7 @@ export function MultiTurnChatStream({
                   setMessages((prev) => {
                     const updated = [...prev];
                     updated[assistantMessageIndex] = {
-                      role: 'assistant',
+                      role: "assistant",
                       content: currentResponse,
                       thinking: currentThinking,
                       sources: currentSources,
@@ -182,18 +182,18 @@ export function MultiTurnChatStream({
               }
             }
           } catch (e) {
-            console.error('Error parsing chunk:', e);
+            console.error("Error parsing chunk:", e);
           }
         }
       }
     } catch (error) {
-      console.error('Error fetching data:', error);
+      console.error("Error fetching data:", error);
 
       setMessages((prev) => {
         const updated = [...prev];
         updated[assistantMessageIndex] = {
-          role: 'assistant',
-          content: 'Sorry, an error occurred while processing your request.',
+          role: "assistant",
+          content: "Sorry, an error occurred while processing your request.",
         };
         return updated;
       });
@@ -210,16 +210,16 @@ export function MultiTurnChatStream({
       <div className="relative flex flex-col md:flex-row gap-6 transition-all duration-500 ease-in-out flex-1">
         <div
           className={cn(
-            'flex-1 space-y-6 transition-all duration-500 ease-in-out',
+            "flex-1 space-y-6 transition-all duration-500 ease-in-out",
             !isMobile && isSourcesOpen
-              ? 'md:w-[calc(60rem-340px)]'
-              : 'md:w-[calc(60rem-340px)]',
+              ? "md:w-[calc(60rem-340px)]"
+              : "md:w-[calc(60rem-340px)]",
           )}
-
+        >
           <div className="space-y-6 mb-4">
             {messages.map((message, index) => (
               <div key={index} data-message-index={index}>
-                {message.role === 'user' ? (
+                {message.role === "user" ? (
                   <div className="rounded-lg flex flex-col align-end items-end">
                     <div className="bg-muted px-4 py-2 rounded-2xl">
                       {message.content}
@@ -256,11 +256,11 @@ export function MultiTurnChatStream({
         {!isMobile && (
           <div
             className={cn(
-              'md:flex flex-col w-[320px] bg-background border rounded-lg shadow-md self-start sticky top-[72px]',
-              'transition-all duration-500 ease-in-out transform',
+              "md:flex flex-col w-[320px] bg-background border rounded-lg shadow-md self-start sticky top-[72px]",
+              "transition-all duration-500 ease-in-out transform",
               isSourcesOpen
-                ? 'opacity-100 translate-x-0 md:max-w-[320px]'
-                : 'opacity-0 translate-x-8 md:max-w-0 md:w-0 h-0 md:overflow-hidden md:invisible',
+                ? "opacity-100 translate-x-0 md:max-w-[320px]"
+                : "opacity-0 translate-x-8 md:max-w-0 md:w-0 h-0 md:overflow-hidden md:invisible",
             )}
           >
             <div className="p-4 border-b sticky top-0 bg-background z-10 flex justify-between items-center">
@@ -292,8 +292,8 @@ export function MultiTurnChatStream({
       {isMobile && sources.length > 0 && (
         <div
           className={cn(
-            'fixed bottom-0 left-0 right-0 bg-background border-t rounded-t-xl shadow-lg transition-transform duration-300 ease-in-out z-50',
-            isSourcesOpen ? 'translate-y-0' : 'translate-y-full',
+            "fixed bottom-0 left-0 right-0 bg-background border-t rounded-t-xl shadow-lg transition-transform duration-300 ease-in-out z-50",
+            isSourcesOpen ? "translate-y-0" : "translate-y-full",
           )}
         >
           <div className="p-4 border-b sticky top-0 bg-background flex justify-between items-center">

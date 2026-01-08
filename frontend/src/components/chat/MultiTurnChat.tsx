@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef } from 'react';
-import { X, BookOpen } from 'lucide-react';
+import { X, ChevronDown } from 'lucide-react';
 import { SourceItem } from '@/components/chat/SourceItem';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -9,10 +9,24 @@ import { AssistantMessage } from './AssistantMessage';
 import type { Emoji } from './TextArea';
 import ProgressiveBlur from '../ui/progressive-blur';
 
-interface StreamChunk {
-  type: string;
-  data: any;
+interface Model {
   id: string;
+  object: string;
+  owned_by: string;
+}
+
+interface OpenAIStreamChunk {
+  id: string;
+  object: string;
+  created: number;
+  model: string;
+  choices: Array<{
+    index: number;
+    delta: {
+      content?: string;
+    };
+    finish_reason: string | null;
+  }>;
 }
 
 interface Message {
@@ -22,7 +36,6 @@ interface Message {
   sources?: any[];
 }
 
-// Sample emojis - replace with actual emoji data from your application
 const sampleEmojis: Emoji[] = [];
 
 export function MultiTurnChatStream({
@@ -38,9 +51,30 @@ export function MultiTurnChatStream({
   const [isThinkingExpanded, setIsThinkingExpanded] = useState(true);
   const [sources, setSources] = useState<any[]>([]);
   const [isSourcesOpen, setIsSourcesOpen] = useState(false);
+  const [models, setModels] = useState<Model[]>([]);
+  const [selectedModel, setSelectedModel] = useState<string>('');
+  const [isModelDropdownOpen, setIsModelDropdownOpen] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const modelDropdownRef = useRef<HTMLDivElement>(null);
   const isMobile = useMediaQuery('(max-width: 768px)');
+
+  useEffect(() => {
+    const fetchModels = async () => {
+      try {
+        const response = await fetch('http://ami:9292/v1/models');
+        const data = await response.json();
+        setModels(data.data || []);
+        if (data.data && data.data.length > 0) {
+          setSelectedModel(data.data[0].id);
+        }
+      } catch (error) {
+        console.error('Error fetching models:', error);
+      }
+    };
+
+    fetchModels();
+  }, []);
 
   useEffect(() => {
     if (initialQuery && messages.length === 0) {
@@ -52,58 +86,21 @@ export function MultiTurnChatStream({
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  // Add click handler for source links
   useEffect(() => {
-    const handleSourceLinkClick = (e: MouseEvent) => {
-      const target = e.target as HTMLElement;
-      if (target.classList.contains('source-link')) {
-        e.preventDefault();
-
-        // Get the source index
-        const sourceIndex = target.getAttribute('data-source-index');
-        if (sourceIndex) {
-          // Open sources panel on mobile
-          if (isMobile) {
-            setIsSourcesOpen(true);
-          } else {
-            // Make sure sources panel is open on desktop
-            setIsSourcesOpen(true);
-          }
-
-          // Update current sources to display
-          const messageElement = target.closest('[data-message-index]');
-          if (messageElement) {
-            const messageIndex = parseInt(
-              messageElement.getAttribute('data-message-index') || '0',
-              10,
-            );
-            const messageSources = messages[messageIndex]?.sources || [];
-            setSources(messageSources);
-          }
-
-          // Scroll to the source
-          setTimeout(() => {
-            const sourceElement = document.getElementById(
-              `source-${sourceIndex}`,
-            );
-            if (sourceElement) {
-              sourceElement.scrollIntoView({ behavior: 'smooth' });
-              sourceElement.classList.add('bg-primary/10');
-              setTimeout(() => {
-                sourceElement.classList.remove('bg-primary/10');
-              }, 2000);
-            }
-          }, 100);
-        }
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        modelDropdownRef.current &&
+        !modelDropdownRef.current.contains(event.target as Node)
+      ) {
+        setIsModelDropdownOpen(false);
       }
     };
 
-    document.addEventListener('click', handleSourceLinkClick);
-
+    document.addEventListener('mousedown', handleClickOutside);
     return () => {
-      document.removeEventListener('click', handleSourceLinkClick);
+      document.removeEventListener('mousedown', handleClickOutside);
     };
-  }, [isMobile, messages]);
+  }, []);
 
   const handleSendMessage = async (input = currentUserInput) => {
     if (!input.trim() || isLoading) return;
@@ -113,11 +110,10 @@ export function MultiTurnChatStream({
       content: input,
     };
 
-    // Add both user message and empty assistant message
     setMessages((prev) => [
       ...prev,
       userMessage,
-      { role: 'assistant', content: '' }, // Add placeholder for assistant
+      { role: 'assistant', content: '' },
     ]);
 
     setCurrentUserInput('');
@@ -126,7 +122,6 @@ export function MultiTurnChatStream({
     setIsThinking(false);
     setSources([]);
 
-    // Assistant message is at the new end of the array
     const assistantMessageIndex = messages.length + 1;
 
     let currentResponse = '';
@@ -135,25 +130,29 @@ export function MultiTurnChatStream({
     let inThinkingBlock = false;
 
     try {
-      // Convert messages to the format expected by your backend
+      if (!selectedModel) {
+        throw new Error('No model selected');
+      }
+
       const conversationHistory = messages.map((msg) => ({
         role: msg.role,
         content: msg.content,
       }));
 
-      // Add the new user message
       conversationHistory.push({
         role: 'user',
         content: input,
       });
 
-      const response = await fetch(`http://localhost:8000/chat/stream`, {
+      const response = await fetch('http://ami:9292/v1/chat/completions', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
+          model: selectedModel,
           messages: conversationHistory,
+          stream: true,
         }),
       });
 
@@ -178,40 +177,32 @@ export function MultiTurnChatStream({
           try {
             if (line.startsWith('data: ')) {
               const jsonStr = line.slice(6);
-              // Handle the "data: [DONE]" message from OpenAI
               if (jsonStr.trim() === '[DONE]') continue;
 
-              const parsed: StreamChunk = JSON.parse(jsonStr);
+              const parsed: OpenAIStreamChunk = JSON.parse(jsonStr);
 
-              if (parsed.type === 'context' && Array.isArray(parsed.data)) {
-                currentSources = parsed.data;
-                setSources(currentSources);
-                // Auto-open sources on desktop
-                if (!isMobile) {
-                  setIsSourcesOpen(true);
-                }
-              } else if (parsed.type === 'token') {
-                const token = parsed.data;
+              if (parsed.choices && parsed.choices.length > 0) {
+                const delta = parsed.choices[0].delta;
+                const content = delta.content || '';
 
-                if (token === '<think>') {
+                if (content === '```thinking') {
                   inThinkingBlock = true;
                   continue;
-                } else if (token === '</think>') {
+                } else if (content === '```') {
                   inThinkingBlock = false;
                   continue;
                 }
 
                 if (inThinkingBlock) {
-                  if (token.trim().length > 0) {
-                    currentThinking += token;
+                  if (content.trim().length > 0) {
+                    currentThinking += content;
                     setThinking(currentThinking);
                     setIsThinking(true);
                   }
                 } else {
-                  currentResponse += token;
+                  currentResponse += content;
                   setIsThinkingExpanded(false);
 
-                  // Update the current assistant message
                   setMessages((prev) => {
                     const updated = [...prev];
                     updated[assistantMessageIndex] = {
@@ -243,7 +234,6 @@ export function MultiTurnChatStream({
       });
     } finally {
       setIsLoading(false);
-      // Focus the input for the next message
       setTimeout(() => {
         inputRef.current?.focus();
       }, 100);
@@ -252,9 +242,7 @@ export function MultiTurnChatStream({
 
   return (
     <div className="relative max-w-[62rem] flex min-h-[calc(100vh-7rem)]">
-      {/* Main content container with two-column layout on desktop */}
       <div className="relative flex flex-col md:flex-row gap-6 transition-all duration-500 ease-in-out flex-1">
-        {/* Main content area with thinking and response - animate width changes */}
         <div
           className={cn(
             'flex-1 space-y-6 transition-all duration-500 ease-in-out',
@@ -263,7 +251,41 @@ export function MultiTurnChatStream({
               : 'md:w-[calc(60rem-340px)]',
           )}
         >
-          {/* Conversation history */}
+          <div className="mb-4">
+            <div className="relative inline-block" ref={modelDropdownRef}>
+              <Button
+                variant="outline"
+                onClick={() => setIsModelDropdownOpen(!isModelDropdownOpen)}
+                disabled={models.length === 0}
+                className="justify-between min-w-[200px]"
+              >
+                <span className="truncate">
+                  {selectedModel || 'Select a model'}
+                </span>
+                <ChevronDown className="h-4 w-4 ml-2 flex-shrink-0" />
+              </Button>
+              {isModelDropdownOpen && models.length > 0 && (
+                <div className="absolute top-full left-0 mt-2 w-full bg-background border rounded-lg shadow-lg z-50 max-h-[300px] overflow-y-auto">
+                  {models.map((model) => (
+                    <button
+                      key={model.id}
+                      onClick={() => {
+                        setSelectedModel(model.id);
+                        setIsModelDropdownOpen(false);
+                      }}
+                      className={cn(
+                        'w-full text-left px-4 py-2 hover:bg-muted transition-colors',
+                        selectedModel === model.id && 'bg-muted',
+                      )}
+                    >
+                      <div className="truncate">{model.id}</div>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+
           <div className="space-y-6 mb-4">
             {messages.map((message, index) => (
               <div key={index} data-message-index={index}>
@@ -301,7 +323,6 @@ export function MultiTurnChatStream({
           <div className="h-12" />
         </div>
 
-        {/* Desktop inline sources panel */}
         {!isMobile && (
           <div
             className={cn(
@@ -338,7 +359,6 @@ export function MultiTurnChatStream({
         )}
       </div>
 
-      {/* Mobile sources drawer */}
       {isMobile && sources.length > 0 && (
         <div
           className={cn(
@@ -368,7 +388,6 @@ export function MultiTurnChatStream({
       <div className="fixed top-0 w-full md:pb-4 pt-20 -ml-8">
         <ProgressiveBlur reverse={true} />
       </div>
-      {/* Input area */}
       <div className="fixed bottom-0 w-full md:pb-4 pt-10">
         <ProgressiveBlur />
         <div className="md:w-[calc(60rem-340px)] w-[90vw] z-10">

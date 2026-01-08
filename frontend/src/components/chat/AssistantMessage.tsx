@@ -10,6 +10,8 @@ interface AssistantMessageProps {
     content: string;
     thinking?: string;
     sources?: any[];
+    model?: string;
+    timestamp?: number;
   };
   isLoading: boolean;
   isLastMessage: boolean;
@@ -94,8 +96,25 @@ export function AssistantMessage({
     ? streamInfo.isThinkingExpanded
     : isThinkingExpanded;
 
+  // Format timestamp
+  const formattedTime = message.timestamp
+    ? new Date(message.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    : null;
+
   return (
     <div className="p-4 rounded-lg bg-card" data-message-role="assistant">
+      {/* Metadata bar - model and timestamp */}
+      {(message.model || formattedTime) && (
+        <div className="mb-3 flex items-center gap-2 text-xs text-muted-foreground">
+          {message.model && (
+            <span className="font-medium">{message.model}</span>
+          )}
+          {message.model && formattedTime && (
+            <span className="text-muted-foreground/60">•</span>
+          )}
+          {formattedTime && <span>{formattedTime}</span>}
+        </div>
+      )}
       {/* Thinking section - Shows either stored thinking or streaming thinking */}
       {hasThinking && (
         <div className="mb-4">

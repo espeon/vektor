@@ -31,10 +31,12 @@ interface OpenAIStreamChunk {
 }
 
 interface Message {
-  role: "user" | "assistant" | "system";
+  role: 'user' | 'assistant' | 'system';
   content: string;
   thinking?: string;
   sources?: any[];
+  model?: string;
+  timestamp?: number;
 }
 
 const sampleEmojis: Emoji[] = [];
@@ -73,12 +75,14 @@ export function MultiTurnChatStream({
     const userMessage: Message = {
       role: "user",
       content: input,
+      model: preferences.selectedModel,
+      timestamp: Date.now(),
     };
 
     setMessages((prev) => [
       ...prev,
       userMessage,
-      { role: "assistant", content: "" },
+      { role: "assistant", content: "", model: preferences.selectedModel, timestamp: Date.now() },
     ]);
 
     setCurrentUserInput("");

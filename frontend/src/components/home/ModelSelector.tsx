@@ -1,7 +1,7 @@
-import { useEffect, useState, useRef } from 'react';
-import { ChevronDown } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { cn } from '@/lib/utils';
+import { useEffect, useState, useRef } from "react";
+import { ChevronDown } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 
 interface Model {
   id: string;
@@ -13,9 +13,15 @@ interface ModelSelectorProps {
   selectedModel: string;
   onModelSelect: (modelId: string) => void;
   className?: string;
+  size?: 'default' | 'large';
 }
 
-export function ModelSelector({ selectedModel, onModelSelect, className }: ModelSelectorProps) {
+export function ModelSelector({
+  selectedModel,
+  onModelSelect,
+  className,
+  size = 'default',
+}: ModelSelectorProps) {
   const [models, setModels] = useState<Model[]>([]);
   const [isOpen, setIsOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -24,11 +30,11 @@ export function ModelSelector({ selectedModel, onModelSelect, className }: Model
   useEffect(() => {
     const fetchModels = async () => {
       try {
-        const response = await fetch('http://ami:9292/v1/models');
+        const response = await fetch("http://ami:9292/v1/models");
         const data = await response.json();
         setModels(data.data || []);
       } catch (error) {
-        console.error('Error fetching models:', error);
+        console.error("Error fetching models:", error);
       } finally {
         setIsLoading(false);
       }
@@ -47,36 +53,43 @@ export function ModelSelector({ selectedModel, onModelSelect, className }: Model
       }
     };
 
-    document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener("mousedown", handleClickOutside);
     return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener("mousedown", handleClickOutside);
     };
   }, []);
 
   const selectedModelData = models.find((m) => m.id === selectedModel);
 
   return (
-    <div className={cn('relative', className)} ref={dropdownRef}>
+    <div className={cn("relative", className)} ref={dropdownRef}>
       <Button
-        variant="outline"
+        variant="ghost"
+        size="sm"
         onClick={() => setIsOpen(!isOpen)}
         disabled={isLoading || models.length === 0}
-        className="justify-between min-w-[300px] max-w-[500px] h-auto py-3 px-4"
+        className={cn(
+          "justify-between h-auto py-3 px-4 hover:bg-muted/20 rounded-full",
+          size === 'large' ? 'min-w-[300px] max-w-[500px]' : 'min-w-[200px] max-w-[200px]'
+        )}
       >
         <div className="flex flex-col items-start text-left">
           {isLoading ? (
             <span className="text-sm">Loading models...</span>
           ) : selectedModelData ? (
             <>
-              <span className="font-medium text-sm">{selectedModelData.id}</span>
-              <span className="text-xs text-muted-foreground">
-                {selectedModelData.owned_by}
+              <span className="font-medium text-sm">
+                {selectedModelData.id}
               </span>
             </>
           ) : models.length > 0 ? (
-            <span className="text-sm text-muted-foreground">Select a model</span>
+            <span className="text-sm text-muted-foreground">
+              Select a model
+            </span>
           ) : (
-            <span className="text-sm text-muted-foreground">No models available</span>
+            <span className="text-sm text-muted-foreground">
+              No models available
+            </span>
           )}
         </div>
         <ChevronDown className="h-4 w-4 ml-2 flex-shrink-0" />
@@ -92,8 +105,8 @@ export function ModelSelector({ selectedModel, onModelSelect, className }: Model
                 setIsOpen(false);
               }}
               className={cn(
-                'w-full text-left px-4 py-3 hover:bg-muted transition-colors flex flex-col items-start',
-                selectedModel === model.id && 'bg-muted',
+                "w-full text-left px-4 py-3 hover:bg-muted transition-colors flex flex-col items-start",
+                selectedModel === model.id && "bg-muted",
               )}
             >
               <span className="font-medium text-sm">{model.id}</span>

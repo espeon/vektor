@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef } from 'react';
-import { X, ChevronDown } from 'lucide-react';
+import { X } from 'lucide-react';
 import { SourceItem } from '@/components/chat/SourceItem';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -8,6 +8,7 @@ import ExpandableInput from '@/components/chat/TextArea';
 import { AssistantMessage } from './AssistantMessage';
 import type { Emoji } from './TextArea';
 import ProgressiveBlur from '../ui/progressive-blur';
+import { usePreferences } from '@/providers/PreferencesProvider';
 
 interface Model {
   id: string;
@@ -43,6 +44,7 @@ export function MultiTurnChatStream({
 }: {
   initialQuery?: string;
 }) {
+  const { preferences } = usePreferences();
   const [isLoading, setIsLoading] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
   const [currentUserInput, setCurrentUserInput] = useState(initialQuery || '');
@@ -51,37 +53,9 @@ export function MultiTurnChatStream({
   const [isThinkingExpanded, setIsThinkingExpanded] = useState(true);
   const [sources, setSources] = useState<any[]>([]);
   const [isSourcesOpen, setIsSourcesOpen] = useState(false);
-  const [models, setModels] = useState<Model[]>([]);
-  const [selectedModel, setSelectedModel] = useState<string>('');
-  const [isModelDropdownOpen, setIsModelDropdownOpen] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
-  const modelDropdownRef = useRef<HTMLDivElement>(null);
   const isMobile = useMediaQuery('(max-width: 768px)');
-
-  useEffect(() => {
-    const savedModel = localStorage.getItem('selectedModel');
-    if (savedModel) {
-      setSelectedModel(savedModel);
-    }
-  }, []);
-
-  useEffect(() => {
-    const fetchModels = async () => {
-      try {
-        const response = await fetch('http://ami:9292/v1/models');
-        const data = await response.json();
-        setModels(data.data || []);
-        if (!selectedModel && data.data && data.data.length > 0) {
-          setSelectedModel(data.data[0].id);
-        }
-      } catch (error) {
-        console.error('Error fetching models:', error);
-      }
-    };
-
-    fetchModels();
-  }, [selectedModel]);
 
   useEffect(() => {
     if (initialQuery && messages.length === 0) {
@@ -92,22 +66,6 @@ export function MultiTurnChatStream({
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
-
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (
-        modelDropdownRef.current &&
-        !modelDropdownRef.current.contains(event.target as Node)
-      ) {
-        setIsModelDropdownOpen(false);
-      }
-    };
-
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
-  }, []);
 
   const handleSendMessage = async (input = currentUserInput) => {
     if (!input.trim() || isLoading) return;
@@ -157,7 +115,7 @@ export function MultiTurnChatStream({
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          model: selectedModel,
+          model: preferences.selectedModel,
           messages: conversationHistory,
           stream: true,
         }),
@@ -257,42 +215,6 @@ export function MultiTurnChatStream({
               ? 'md:w-[calc(60rem-340px)]'
               : 'md:w-[calc(60rem-340px)]',
           )}
-        >
-          <div className="mb-4">
-            <div className="relative inline-block" ref={modelDropdownRef}>
-              <Button
-                variant="outline"
-                onClick={() => setIsModelDropdownOpen(!isModelDropdownOpen)}
-                disabled={models.length === 0}
-                className="justify-between min-w-[200px]"
-              >
-                <span className="truncate">
-                  {selectedModel || 'Select a model'}
-                </span>
-                <ChevronDown className="h-4 w-4 ml-2 flex-shrink-0" />
-              </Button>
-              {isModelDropdownOpen && models.length > 0 && (
-                <div className="absolute top-full left-0 mt-2 w-full bg-background border rounded-lg shadow-lg z-50 max-h-[300px] overflow-y-auto">
-                  {models.map((model) => (
-                    <button
-                      key={model.id}
-                      onClick={() => {
-                        setSelectedModel(model.id);
-                        localStorage.setItem('selectedModel', model.id);
-                        setIsModelDropdownOpen(false);
-                      }}
-                      className={cn(
-                        'w-full text-left px-4 py-2 hover:bg-muted transition-colors',
-                        selectedModel === model.id && 'bg-muted',
-                      )}
-                    >
-                      <div className="truncate">{model.id}</div>
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
 
           <div className="space-y-6 mb-4">
             {messages.map((message, index) => (

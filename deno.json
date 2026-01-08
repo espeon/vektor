@@ -7,5 +7,10 @@
     "frontend:serve": "deno task -c ./frontend/deno.json serve",
     "frontend:test": "deno task -c ./frontend/deno.json test",
     "frontend:install": "deno task -c ./frontend/deno.json install"
+  },
+  "lint": {
+    "rules": {
+      "exclude": ["no-sloppy-imports"]
+    }
   }
 }

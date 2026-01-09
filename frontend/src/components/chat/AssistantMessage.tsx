@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { BookOpen, Clock, HelpCircle } from 'lucide-react';
+import { BookOpen, Clock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ThinkContent } from '@/components/chat/ThinkContent';
 import { Markdown } from './Markdown';
@@ -50,7 +50,6 @@ export function AssistantMessage({
   const [processedContent, setProcessedContent] = useState(message.content);
   const [isThinkingExpanded, setIsThinkingExpanded] = useState(false);
   const [showTimings, setShowTimings] = useState(false);
-  const [showMetadataHelp, setShowMetadataHelp] = useState(false);
 
   // Process source links when content or sources change
   useEffect(() => {
@@ -121,60 +120,6 @@ export function AssistantMessage({
 
   return (
     <div className="p-4 rounded-lg bg-card" data-message-role="assistant">
-      {/* Metadata bar - model, timestamp, and timings */}
-      {(message.model || formattedTime || timingDisplay) && (
-        <div className="mb-3 flex items-center gap-2 text-xs text-muted-foreground">
-          {message.model && (
-            <span className="font-medium">{message.model}</span>
-          )}
-          {(message.model && (formattedTime || timingDisplay)) && (
-            <span className="text-muted-foreground/60">•</span>
-          )}
-          {formattedTime && <span>{formattedTime}</span>}
-          {formattedTime && timingDisplay && (
-            <span className="text-muted-foreground/60">•</span>
-          )}
-          {timingDisplay && (
-            <div
-              className="relative inline-flex items-center gap-1 cursor-help"
-              onMouseEnter={() => setShowTimings(true)}
-              onMouseLeave={() => setShowTimings(false)}
-            >
-              <Clock className="h-3 w-3" />
-              <span>{timingDisplay}</span>
-              {showTimings && message.timings && (
-                <div className="absolute top-full left-0 mt-2 p-3 bg-popover border rounded-lg shadow-lg z-50 min-w-[200px]">
-                  <div className="space-y-1">
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Tokens:</span>
-                      <span className="font-medium">
-                        {message.timings.prompt_n}+{message.timings.predicted_n}
-                      </span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Prompt time:</span>
-                      <span className="font-medium">{message.timings.prompt_ms}ms</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Generation time:</span>
-                      <span className="font-medium">{message.timings.predicted_ms}ms</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Cache hits:</span>
-                      <span className="font-medium">{message.timings.cache_n}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Speed:</span>
-                      <span className="font-medium">{message.timings.predicted_per_second.toFixed(1)} t/s</span>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-      )}
-
       {/* Thinking section - Shows either stored thinking or streaming thinking */}
       {hasThinking && (
         <div className="mb-4">
@@ -222,38 +167,59 @@ export function AssistantMessage({
         </div>
       )}
 
-      {/* Metadata help button */}
-      <div className="mt-4 flex justify-end">
-        <div
-          className="relative inline-block"
-          onMouseEnter={() => setShowMetadataHelp(true)}
-          onMouseLeave={() => setShowMetadataHelp(false)}
-        >
-          <HelpCircle className="h-4 w-4 text-muted-foreground/60 hover:text-muted-foreground cursor-help" />
-          {showMetadataHelp && (
-            <div className="absolute bottom-full right-0 mb-2 p-3 bg-popover border rounded-lg shadow-lg z-50 min-w-[250px] text-xs">
-              <div className="space-y-2">
-                <p className="font-medium mb-1">Metadata Information</p>
-                <ul className="space-y-1 text-muted-foreground">
-                  <li><span className="font-medium">Model:</span> The AI model used for this response</li>
-                  <li><span className="font-medium">Time:</span> When this request was made</li>
-                  {timingDisplay && (
-                    <li>
-                      <span className="font-medium">Timing:</span> Total time spent processing (prompt + generation)
-                    </li>
-                  )}
-                  {message.timings && (
-                    <>
-                      <li><span className="font-medium">Hover over timing</span> for detailed performance metrics</li>
-                      <li className="text-muted-foreground/80">Includes tokens, prompt time, generation time, cache hits, and speed</li>
-                    </>
-                  )}
-                </ul>
-              </div>
+      {/* Metadata bar - model, timestamp, and timings */}
+      {(message.model || formattedTime || timingDisplay) && (
+        <div className="mt-4 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+          {message.model && (
+            <span className="font-medium">{message.model}</span>
+          )}
+          {(message.model && (formattedTime || timingDisplay)) && (
+            <span className="text-muted-foreground/60">•</span>
+          )}
+          {formattedTime && <span>{formattedTime}</span>}
+          {formattedTime && timingDisplay && (
+            <span className="text-muted-foreground/60">•</span>
+          )}
+          {timingDisplay && (
+            <div
+              className="relative inline-flex items-center gap-1 cursor-help"
+              onMouseEnter={() => setShowTimings(true)}
+              onMouseLeave={() => setShowTimings(false)}
+            >
+              <Clock className="h-3 w-3" />
+              <span>{timingDisplay}</span>
+              {showTimings && message.timings && (
+                <div className="absolute bottom-full left-0 mb-2 p-3 bg-popover border rounded-lg shadow-lg z-50 min-w-[200px]">
+                  <div className="space-y-1">
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Tokens:</span>
+                      <span className="font-medium">
+                        {message.timings.prompt_n}+{message.timings.predicted_n}
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Prompt time:</span>
+                      <span className="font-medium">{message.timings.prompt_ms}ms</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Generation time:</span>
+                      <span className="font-medium">{message.timings.predicted_ms}ms</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Cache hits:</span>
+                      <span className="font-medium">{message.timings.cache_n}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Speed:</span>
+                      <span className="font-medium">{message.timings.predicted_per_second.toFixed(1)} t/s</span>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </div>
-      </div>
+      )}
     </div>
   );
 }

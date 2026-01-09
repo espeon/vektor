@@ -1,18 +1,46 @@
-import { useEffect, useState, useRef } from 'react';
-import { X, BookOpen } from 'lucide-react';
-import { SourceItem } from '@/components/chat/SourceItem';
-import { Button } from '@/components/ui/button';
-import { cn } from '@/lib/utils';
-import { useMediaQuery } from '@/hooks/use-media-query';
-import ExpandableInput from '@/components/chat/TextArea';
-import { AssistantMessage } from './AssistantMessage';
-import type { Emoji } from './TextArea';
-import ProgressiveBlur from '../ui/progressive-blur';
+import { useEffect, useState, useRef } from "react";
+import { X } from "lucide-react";
+import { SourceItem } from "@/components/chat/SourceItem";
+import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
+import { useMediaQuery } from "@/hooks/use-media-query";
+import ExpandableInput from "@/components/chat/TextArea";
+import { AssistantMessage } from "./AssistantMessage";
+import type { Emoji } from "./TextArea";
+import ProgressiveBlur from "../ui/progressive-blur";
+import { usePreferences } from "@/providers/PreferencesProvider";
 
-interface StreamChunk {
-  type: string;
-  data: any;
+interface Model {
   id: string;
+  object: string;
+  owned_by: string;
+}
+
+interface OpenAIStreamChunk {
+  id: string;
+  object: string;
+  created: number;
+  model: string;
+  system_fingerprint?: string;
+  choices: Array<{
+    index: number;
+    delta: {
+      content?: string;
+      reasoning_content?: string;
+    };
+    finish_reason: string | null;
+  }>;
+  timings?: {
+    prompt_n: number;
+    prompt_ms: number;
+    prompt_per_token_ms: number;
+    prompt_per_second: number;
+    predicted_n: number;
+    predicted_ms: number;
+    predicted_per_token_ms: number;
+    predicted_per_second: number;
+    cache_n: number;
+  };
 }
 
 interface Message {
@@ -20,9 +48,21 @@ interface Message {
   content: string;
   thinking?: string;
   sources?: any[];
+  model?: string;
+  timestamp?: number;
+  timings?: {
+    prompt_n: number;
+    prompt_ms: number;
+    prompt_per_token_ms: number;
+    prompt_per_second: number;
+    predicted_n: number;
+    predicted_ms: number;
+    predicted_per_token_ms: number;
+    predicted_per_second: number;
+    cache_n: number;
+  };
 }
 
-// Sample emojis - replace with actual emoji data from your application
 const sampleEmojis: Emoji[] = [];
 
 export function MultiTurnChatStream({
@@ -30,17 +70,18 @@ export function MultiTurnChatStream({
 }: {
   initialQuery?: string;
 }) {
+  const { preferences } = usePreferences();
   const [isLoading, setIsLoading] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
-  const [currentUserInput, setCurrentUserInput] = useState(initialQuery || '');
-  const [thinking, setThinking] = useState('');
+  const [currentUserInput, setCurrentUserInput] = useState(initialQuery || "");
+  const [thinking, setThinking] = useState("");
   const [isThinking, setIsThinking] = useState(false);
   const [isThinkingExpanded, setIsThinkingExpanded] = useState(true);
   const [sources, setSources] = useState<any[]>([]);
   const [isSourcesOpen, setIsSourcesOpen] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
-  const isMobile = useMediaQuery('(max-width: 768px)');
+  const isMobile = useMediaQuery("(max-width: 768px)");
 
   useEffect(() => {
     if (initialQuery && messages.length === 0) {
@@ -49,116 +90,68 @@ export function MultiTurnChatStream({
   }, [initialQuery]);
 
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
-
-  // Add click handler for source links
-  useEffect(() => {
-    const handleSourceLinkClick = (e: MouseEvent) => {
-      const target = e.target as HTMLElement;
-      if (target.classList.contains('source-link')) {
-        e.preventDefault();
-
-        // Get the source index
-        const sourceIndex = target.getAttribute('data-source-index');
-        if (sourceIndex) {
-          // Open sources panel on mobile
-          if (isMobile) {
-            setIsSourcesOpen(true);
-          } else {
-            // Make sure sources panel is open on desktop
-            setIsSourcesOpen(true);
-          }
-
-          // Update current sources to display
-          const messageElement = target.closest('[data-message-index]');
-          if (messageElement) {
-            const messageIndex = parseInt(
-              messageElement.getAttribute('data-message-index') || '0',
-              10,
-            );
-            const messageSources = messages[messageIndex]?.sources || [];
-            setSources(messageSources);
-          }
-
-          // Scroll to the source
-          setTimeout(() => {
-            const sourceElement = document.getElementById(
-              `source-${sourceIndex}`,
-            );
-            if (sourceElement) {
-              sourceElement.scrollIntoView({ behavior: 'smooth' });
-              sourceElement.classList.add('bg-primary/10');
-              setTimeout(() => {
-                sourceElement.classList.remove('bg-primary/10');
-              }, 2000);
-            }
-          }, 100);
-        }
-      }
-    };
-
-    document.addEventListener('click', handleSourceLinkClick);
-
-    return () => {
-      document.removeEventListener('click', handleSourceLinkClick);
-    };
-  }, [isMobile, messages]);
 
   const handleSendMessage = async (input = currentUserInput) => {
     if (!input.trim() || isLoading) return;
 
     const userMessage: Message = {
-      role: 'user',
+      role: "user",
       content: input,
+      model: preferences.selectedModel,
+      timestamp: Date.now(),
     };
 
-    // Add both user message and empty assistant message
     setMessages((prev) => [
       ...prev,
       userMessage,
-      { role: 'assistant', content: '' }, // Add placeholder for assistant
+      { role: "assistant", content: "", model: preferences.selectedModel, timestamp: Date.now() },
     ]);
 
-    setCurrentUserInput('');
+    setCurrentUserInput("");
     setIsLoading(true);
-    setThinking('');
+    setThinking("");
     setIsThinking(false);
     setSources([]);
 
-    // Assistant message is at the new end of the array
     const assistantMessageIndex = messages.length + 1;
 
-    let currentResponse = '';
-    let currentThinking = '';
-    let currentSources: any[] = [];
-    let inThinkingBlock = false;
+      let currentResponse = "";
+      let currentThinking = "";
+      let currentSources: any[] = [];
+      let currentTimings: OpenAIStreamChunk['timings'] | null = null;
+      let inThinkingBlock = false;
 
     try {
-      // Convert messages to the format expected by your backend
+      if (!preferences.selectedModel) {
+        throw new Error("No model selected");
+      }
+
       const conversationHistory = messages.map((msg) => ({
         role: msg.role,
         content: msg.content,
       }));
 
-      // Add the new user message
       conversationHistory.push({
-        role: 'user',
+        role: "user",
         content: input,
       });
 
-      const response = await fetch(`http://localhost:8000/chat/stream`, {
-        method: 'POST',
+      const response = await fetch("http://ami:9292/v1/chat/completions", {
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
         body: JSON.stringify({
+          model: preferences.selectedModel,
           messages: conversationHistory,
+          stream: true,
         }),
       });
 
       if (!response.body) {
-        throw new Error('No response body');
+        throw new Error("No response body");
       }
 
       const reader = response.body.getReader();
@@ -172,78 +165,103 @@ export function MultiTurnChatStream({
         }
 
         const chunk = decoder.decode(value);
-        const lines = chunk.split('\n').filter((line) => line.trim() !== '');
+        const lines = chunk.split("\n").filter((line) => line.trim() !== "");
 
         for (const line of lines) {
           try {
-            if (line.startsWith('data: ')) {
+            if (line.startsWith("data: ")) {
               const jsonStr = line.slice(6);
-              // Handle the "data: [DONE]" message from OpenAI
-              if (jsonStr.trim() === '[DONE]') continue;
+              console.log("SSE line:", jsonStr);
+              if (jsonStr.trim() === "[DONE]") continue;
 
-              const parsed: StreamChunk = JSON.parse(jsonStr);
+              const parsed: OpenAIStreamChunk = JSON.parse(jsonStr);
 
-              if (parsed.type === 'context' && Array.isArray(parsed.data)) {
-                currentSources = parsed.data;
-                setSources(currentSources);
-                // Auto-open sources on desktop
-                if (!isMobile) {
-                  setIsSourcesOpen(true);
-                }
-              } else if (parsed.type === 'token') {
-                const token = parsed.data;
+              if (parsed.choices && parsed.choices.length > 0) {
+                const delta = parsed.choices[0].delta;
 
-                if (token === '<think>') {
-                  inThinkingBlock = true;
-                  continue;
-                } else if (token === '</think>') {
-                  inThinkingBlock = false;
-                  continue;
+                // Capture timings if present (stop message)
+                if (parsed.timings) {
+                  currentTimings = parsed.timings;
                 }
 
-                if (inThinkingBlock) {
-                  if (token.trim().length > 0) {
-                    currentThinking += token;
+                // Log timings if present (stop message)
+                if (parsed.timings && !delta.content && !delta.reasoning_content) {
+                  console.log("Request timings:", parsed.timings);
+                }
+
+                // Handle reasoning_content separately (goes to thinking)
+                if (delta.reasoning_content) {
+                  if (delta.reasoning_content.trim().length > 0) {
+                    currentThinking += delta.reasoning_content;
                     setThinking(currentThinking);
                     setIsThinking(true);
                   }
-                } else {
-                  currentResponse += token;
-                  setIsThinkingExpanded(false);
+                  continue;
+                }
 
-                  // Update the current assistant message
-                  setMessages((prev) => {
-                    const updated = [...prev];
-                    updated[assistantMessageIndex] = {
-                      role: 'assistant',
-                      content: currentResponse,
-                      thinking: currentThinking,
-                      sources: currentSources,
-                    };
-                    return updated;
-                  });
+                // Handle regular content
+                if (delta.content) {
+                  if (delta.content === "```thinking") {
+                    inThinkingBlock = true;
+                  } else if (delta.content === "```") {
+                    inThinkingBlock = false;
+                  }
+
+                  if (inThinkingBlock) {
+                    if (delta.content.trim().length > 0) {
+                      currentThinking += delta.content;
+                      setThinking(currentThinking);
+                      setIsThinking(true);
+                    }
+                  } else {
+                    currentResponse += delta.content;
+                    setIsThinkingExpanded(false);
+
+                    setMessages((prev) => {
+                      const updated = [...prev];
+                      updated[assistantMessageIndex] = {
+                        role: "assistant",
+                        content: currentResponse,
+                        thinking: currentThinking,
+                        sources: currentSources,
+                        timings: currentTimings || undefined,
+                      };
+                      return updated;
+                    });
+                  }
                 }
               }
             }
           } catch (e) {
-            console.error('Error parsing chunk:', e);
+            console.error("Error parsing chunk:", e);
           }
         }
       }
     } catch (error) {
-      console.error('Error fetching data:', error);
+      console.error("Error fetching data:", error);
 
       setMessages((prev) => {
         const updated = [...prev];
         updated[assistantMessageIndex] = {
-          role: 'assistant',
-          content: 'Sorry, an error occurred while processing your request.',
+          role: "assistant",
+          content: "Sorry, an error occurred while processing your request.",
         };
         return updated;
       });
     } finally {
+      // Update final message with timings if captured
+      if (currentTimings && assistantMessageIndex !== undefined) {
+        setMessages((prev) => {
+          const updated = [...prev];
+          updated[assistantMessageIndex] = {
+            ...updated[assistantMessageIndex],
+            timings: currentTimings,
+          };
+          return updated;
+        });
+      }
+
       setIsLoading(false);
-      // Focus the input for the next message
       setTimeout(() => {
         inputRef.current?.focus();
       }, 100);
@@ -252,22 +270,19 @@ export function MultiTurnChatStream({
 
   return (
     <div className="relative max-w-[62rem] flex min-h-[calc(100vh-7rem)]">
-      {/* Main content container with two-column layout on desktop */}
       <div className="relative flex flex-col md:flex-row gap-6 transition-all duration-500 ease-in-out flex-1">
-        {/* Main content area with thinking and response - animate width changes */}
         <div
           className={cn(
-            'flex-1 space-y-6 transition-all duration-500 ease-in-out',
+            "flex-1 space-y-6 transition-all duration-500 ease-in-out",
             !isMobile && isSourcesOpen
-              ? 'md:w-[calc(60rem-340px)]'
-              : 'md:w-[calc(60rem-340px)]',
+              ? "md:w-[calc(60rem-340px)]"
+              : "md:w-[calc(60rem-340px)]",
           )}
         >
-          {/* Conversation history */}
           <div className="space-y-6 mb-4">
             {messages.map((message, index) => (
               <div key={index} data-message-index={index}>
-                {message.role === 'user' ? (
+                {message.role === "user" ? (
                   <div className="rounded-lg flex flex-col align-end items-end">
                     <div className="bg-muted px-4 py-2 rounded-2xl">
                       {message.content}
@@ -301,15 +316,14 @@ export function MultiTurnChatStream({
           <div className="h-12" />
         </div>
 
-        {/* Desktop inline sources panel */}
         {!isMobile && (
           <div
             className={cn(
-              'md:flex flex-col w-[320px] bg-background border rounded-lg shadow-md self-start sticky top-[72px]',
-              'transition-all duration-500 ease-in-out transform',
+              "md:flex flex-col w-[320px] bg-background border rounded-lg shadow-md self-start sticky top-[72px]",
+              "transition-all duration-500 ease-in-out transform",
               isSourcesOpen
-                ? 'opacity-100 translate-x-0 md:max-w-[320px]'
-                : 'opacity-0 translate-x-8 md:max-w-0 md:w-0 h-0 md:overflow-hidden md:invisible',
+                ? "opacity-100 translate-x-0 md:max-w-[320px]"
+                : "opacity-0 translate-x-8 md:max-w-0 md:w-0 h-0 md:overflow-hidden md:invisible",
             )}
           >
             <div className="p-4 border-b sticky top-0 bg-background z-10 flex justify-between items-center">
@@ -338,12 +352,11 @@ export function MultiTurnChatStream({
         )}
       </div>
 
-      {/* Mobile sources drawer */}
       {isMobile && sources.length > 0 && (
         <div
           className={cn(
-            'fixed bottom-0 left-0 right-0 bg-background border-t rounded-t-xl shadow-lg transition-transform duration-300 ease-in-out z-50',
-            isSourcesOpen ? 'translate-y-0' : 'translate-y-full',
+            "fixed bottom-0 left-0 right-0 bg-background border-t rounded-t-xl shadow-lg transition-transform duration-300 ease-in-out z-50",
+            isSourcesOpen ? "translate-y-0" : "translate-y-full",
           )}
         >
           <div className="p-4 border-b sticky top-0 bg-background flex justify-between items-center">
@@ -368,7 +381,6 @@ export function MultiTurnChatStream({
       <div className="fixed top-0 w-full md:pb-4 pt-20 -ml-8">
         <ProgressiveBlur reverse={true} />
       </div>
-      {/* Input area */}
       <div className="fixed bottom-0 w-full md:pb-4 pt-10">
         <ProgressiveBlur />
         <div className="md:w-[calc(60rem-340px)] w-[90vw] z-10">

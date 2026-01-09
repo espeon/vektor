@@ -1,4 +1,16 @@
 {
-  "workspace": ["./frontend", "./backend"],
-  "nodeModulesDir": "auto"
+  "workspace": ["./frontend"],
+  "nodeModulesDir": "auto",
+  "tasks": {
+    "frontend:dev": "deno task -c ./frontend/deno.json dev",
+    "frontend:build": "deno task -c ./frontend/deno.json build",
+    "frontend:serve": "deno task -c ./frontend/deno.json serve",
+    "frontend:test": "deno task -c ./frontend/deno.json test",
+    "frontend:install": "deno task -c ./frontend/deno.json install"
+  },
+  "lint": {
+    "rules": {
+      "exclude": ["no-sloppy-imports"]
+    }
+  }
 }

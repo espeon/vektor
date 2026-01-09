@@ -1,14 +1,17 @@
-import type React from 'react';
+import type React from "react";
 
-import { useEffect, useRef, useState } from 'react';
-import { SearchIcon } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { useRouter } from '@tanstack/react-router';
-import Ambilight from '../Ambilight';
+import { useEffect, useRef, useState } from "react";
+import { SearchIcon } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { useRouter } from "@tanstack/react-router";
+import Ambilight from "../Ambilight";
+import { ModelSelector } from "./ModelSelector";
+import { usePreferences } from "@/providers/PreferencesProvider";
 
 export function Search() {
-  const [query, setQuery] = useState('');
+  const { preferences, updatePreferences } = usePreferences();
+  const [query, setQuery] = useState("");
 
   const router = useRouter();
 
@@ -16,7 +19,7 @@ export function Search() {
     e.preventDefault();
     if (query.trim()) {
       router.navigate({
-        to: '/chat',
+        to: "/chat",
         search: { q: encodeURIComponent(query.trim()) },
       });
     }
@@ -38,6 +41,11 @@ export function Search() {
           className="border-0 ring-1 hover:ring-2 -ring-offset-2 text-lg h-10 ring-violet-300/30 hover:ring-violet-300/20 focus-visible:ring-violet-300/20 shadow-sm hover:shadow-lg hover:shadow-violet-950/10 rounded-full"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
+        />
+        <ModelSelector
+          selectedModel={preferences.selectedModel}
+          onModelSelect={(modelId) => updatePreferences({ selectedModel: modelId })}
+          className="absolute right-12"
         />
         <Button
           type="submit"

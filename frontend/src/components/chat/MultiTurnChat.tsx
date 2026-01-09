@@ -189,38 +189,46 @@ export function MultiTurnChatStream({
                   console.log("Request timings:", parsed.timings);
                 }
 
-                // Support both content and reasoning_content fields
-                const content = delta.content || delta.reasoning_content || "";
-
-                if (content === "```thinking") {
-                  inThinkingBlock = true;
-                  continue;
-                } else if (content === "```") {
-                  inThinkingBlock = false;
-                  continue;
-                }
-
-                if (inThinkingBlock) {
-                  if (content.trim().length > 0) {
-                    currentThinking += content;
+                // Handle reasoning_content separately (goes to thinking)
+                if (delta.reasoning_content) {
+                  if (delta.reasoning_content.trim().length > 0) {
+                    currentThinking += delta.reasoning_content;
                     setThinking(currentThinking);
                     setIsThinking(true);
                   }
-                } else {
-                  currentResponse += content;
-                  setIsThinkingExpanded(false);
+                  continue;
+                }
 
-                  setMessages((prev) => {
-                    const updated = [...prev];
-                    updated[assistantMessageIndex] = {
-                      role: "assistant",
-                      content: currentResponse,
-                      thinking: currentThinking,
-                      sources: currentSources,
-                      timings: currentTimings || undefined,
-                    };
-                    return updated;
-                  });
+                // Handle regular content
+                if (delta.content) {
+                  if (delta.content === "```thinking") {
+                    inThinkingBlock = true;
+                  } else if (delta.content === "```") {
+                    inThinkingBlock = false;
+                  }
+
+                  if (inThinkingBlock) {
+                    if (delta.content.trim().length > 0) {
+                      currentThinking += delta.content;
+                      setThinking(currentThinking);
+                      setIsThinking(true);
+                    }
+                  } else {
+                    currentResponse += delta.content;
+                    setIsThinkingExpanded(false);
+
+                    setMessages((prev) => {
+                      const updated = [...prev];
+                      updated[assistantMessageIndex] = {
+                        role: "assistant",
+                        content: currentResponse,
+                        thinking: currentThinking,
+                        sources: currentSources,
+                        timings: currentTimings || undefined,
+                      };
+                      return updated;
+                    });
+                  }
                 }
               }
             }

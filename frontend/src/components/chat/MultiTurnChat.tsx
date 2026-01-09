@@ -146,6 +146,7 @@ export function MultiTurnChatStream({
           try {
             if (line.startsWith("data: ")) {
               const jsonStr = line.slice(6);
+              console.log("SSE line:", jsonStr);
               if (jsonStr.trim() === "[DONE]") continue;
 
               const parsed: OpenAIStreamChunk = JSON.parse(jsonStr);

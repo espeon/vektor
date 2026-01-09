@@ -114,6 +114,10 @@ export function AssistantMessage({
     : null;
 
   // Calculate timing display
+  const generationTime = message.timings?.predicted_ms
+    ? `${message.timings.predicted_ms}ms`
+    : null;
+
   const timingDisplay = message.timings
     ? `${message.timings.prompt_ms}+${message.timings.predicted_ms}ms`
     : null;
@@ -167,17 +171,21 @@ export function AssistantMessage({
         </div>
       )}
 
-      {/* Metadata bar - model, timestamp, and timings */}
-      {(message.model || formattedTime || timingDisplay) && (
+      {/* Metadata bar - model, timestamp, generation time, and total timings */}
+      {(message.model || formattedTime || generationTime || timingDisplay) && (
         <div className="mt-4 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
           {message.model && (
             <span className="font-medium">{message.model}</span>
           )}
-          {(message.model && (formattedTime || timingDisplay)) && (
+          {(message.model && (formattedTime || generationTime || timingDisplay)) && (
             <span className="text-muted-foreground/60">•</span>
           )}
           {formattedTime && <span>{formattedTime}</span>}
-          {formattedTime && timingDisplay && (
+          {formattedTime && (generationTime || timingDisplay) && (
+            <span className="text-muted-foreground/60">•</span>
+          )}
+          {generationTime && <span>{generationTime}</span>}
+          {generationTime && timingDisplay && (
             <span className="text-muted-foreground/60">•</span>
           )}
           {timingDisplay && (

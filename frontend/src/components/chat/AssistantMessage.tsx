@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { BookOpen, Clock } from 'lucide-react';
+import { BookOpen, Clock, HelpCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ThinkContent } from '@/components/chat/ThinkContent';
 import { Markdown } from './Markdown';
@@ -50,6 +50,7 @@ export function AssistantMessage({
   const [processedContent, setProcessedContent] = useState(message.content);
   const [isThinkingExpanded, setIsThinkingExpanded] = useState(false);
   const [showTimings, setShowTimings] = useState(false);
+  const [showMetadataHelp, setShowMetadataHelp] = useState(false);
 
   // Process source links when content or sources change
   useEffect(() => {
@@ -220,6 +221,39 @@ export function AssistantMessage({
           </Button>
         </div>
       )}
+
+      {/* Metadata help button */}
+      <div className="mt-4 flex justify-end">
+        <div
+          className="relative inline-block"
+          onMouseEnter={() => setShowMetadataHelp(true)}
+          onMouseLeave={() => setShowMetadataHelp(false)}
+        >
+          <HelpCircle className="h-4 w-4 text-muted-foreground/60 hover:text-muted-foreground cursor-help" />
+          {showMetadataHelp && (
+            <div className="absolute bottom-full right-0 mb-2 p-3 bg-popover border rounded-lg shadow-lg z-50 min-w-[250px] text-xs">
+              <div className="space-y-2">
+                <p className="font-medium mb-1">Metadata Information</p>
+                <ul className="space-y-1 text-muted-foreground">
+                  <li><span className="font-medium">Model:</span> The AI model used for this response</li>
+                  <li><span className="font-medium">Time:</span> When this request was made</li>
+                  {timingDisplay && (
+                    <li>
+                      <span className="font-medium">Timing:</span> Total time spent processing (prompt + generation)
+                    </li>
+                  )}
+                  {message.timings && (
+                    <>
+                      <li><span className="font-medium">Hover over timing</span> for detailed performance metrics</li>
+                      <li className="text-muted-foreground/80">Includes tokens, prompt time, generation time, cache hits, and speed</li>
+                    </>
+                  )}
+                </ul>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   );
 }

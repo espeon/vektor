@@ -249,6 +249,18 @@ export function MultiTurnChatStream({
         return updated;
       });
     } finally {
+      // Update final message with timings if captured
+      if (currentTimings && assistantMessageIndex !== undefined) {
+        setMessages((prev) => {
+          const updated = [...prev];
+          updated[assistantMessageIndex] = {
+            ...updated[assistantMessageIndex],
+            timings: currentTimings,
+          };
+          return updated;
+        });
+      }
+
       setIsLoading(false);
       setTimeout(() => {
         inputRef.current?.focus();

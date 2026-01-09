@@ -21,13 +21,26 @@ interface OpenAIStreamChunk {
   object: string;
   created: number;
   model: string;
+  system_fingerprint?: string;
   choices: Array<{
     index: number;
     delta: {
       content?: string;
+      reasoning_content?: string;
     };
     finish_reason: string | null;
   }>;
+  timings?: {
+    prompt_n: number;
+    prompt_ms: number;
+    prompt_per_token_ms: number;
+    prompt_per_second: number;
+    predicted_n: number;
+    predicted_ms: number;
+    predicted_per_token_ms: number;
+    predicted_per_second: number;
+    cache_n: number;
+  };
 }
 
 interface Message {
@@ -37,6 +50,17 @@ interface Message {
   sources?: any[];
   model?: string;
   timestamp?: number;
+  timings?: {
+    prompt_n: number;
+    prompt_ms: number;
+    prompt_per_token_ms: number;
+    prompt_per_second: number;
+    predicted_n: number;
+    predicted_ms: number;
+    predicted_per_token_ms: number;
+    predicted_per_second: number;
+    cache_n: number;
+  };
 }
 
 const sampleEmojis: Emoji[] = [];
@@ -93,10 +117,11 @@ export function MultiTurnChatStream({
 
     const assistantMessageIndex = messages.length + 1;
 
-    let currentResponse = "";
-    let currentThinking = "";
-    let currentSources: any[] = [];
-    let inThinkingBlock = false;
+      let currentResponse = "";
+      let currentThinking = "";
+      let currentSources: any[] = [];
+      let currentTimings: OpenAIStreamChunk['timings'] | null = null;
+      let inThinkingBlock = false;
 
     try {
       if (!preferences.selectedModel) {
@@ -153,7 +178,19 @@ export function MultiTurnChatStream({
 
               if (parsed.choices && parsed.choices.length > 0) {
                 const delta = parsed.choices[0].delta;
-                const content = delta.content || "";
+
+                // Capture timings if present (stop message)
+                if (parsed.timings) {
+                  currentTimings = parsed.timings;
+                }
+
+                // Log timings if present (stop message)
+                if (parsed.timings && !delta.content && !delta.reasoning_content) {
+                  console.log("Request timings:", parsed.timings);
+                }
+
+                // Support both content and reasoning_content fields
+                const content = delta.content || delta.reasoning_content || "";
 
                 if (content === "```thinking") {
                   inThinkingBlock = true;
@@ -180,6 +217,7 @@ export function MultiTurnChatStream({
                       content: currentResponse,
                       thinking: currentThinking,
                       sources: currentSources,
+                      timings: currentTimings || undefined,
                     };
                     return updated;
                   });

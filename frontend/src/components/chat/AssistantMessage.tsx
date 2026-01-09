@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { BookOpen } from 'lucide-react';
+import { BookOpen, Clock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ThinkContent } from '@/components/chat/ThinkContent';
 import { Markdown } from './Markdown';
@@ -12,6 +12,17 @@ interface AssistantMessageProps {
     sources?: any[];
     model?: string;
     timestamp?: number;
+    timings?: {
+      prompt_n: number;
+      prompt_ms: number;
+      prompt_per_token_ms: number;
+      prompt_per_second: number;
+      predicted_n: number;
+      predicted_ms: number;
+      predicted_per_token_ms: number;
+      predicted_per_second: number;
+      cache_n: number;
+    };
   };
   isLoading: boolean;
   isLastMessage: boolean;
@@ -38,6 +49,7 @@ export function AssistantMessage({
 }: AssistantMessageProps) {
   const [processedContent, setProcessedContent] = useState(message.content);
   const [isThinkingExpanded, setIsThinkingExpanded] = useState(false);
+  const [showTimings, setShowTimings] = useState(false);
 
   // Process source links when content or sources change
   useEffect(() => {
@@ -66,7 +78,7 @@ export function AssistantMessage({
 
       // Check if this index exists in our sources array
       if (index >= 0 && index < sources.length) {
-        // Create a link to the source
+        // Create a link to source
         return `<a href="#source-${index}" class="source-link" data-source-index="${index}">[${index + 1}]</a>`;
       }
       return match;
@@ -101,20 +113,67 @@ export function AssistantMessage({
     ? new Date(message.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     : null;
 
+  // Calculate timing display
+  const timingDisplay = message.timings
+    ? `${message.timings.prompt_ms}+${message.timings.predicted_ms}ms`
+    : null;
+
   return (
     <div className="p-4 rounded-lg bg-card" data-message-role="assistant">
-      {/* Metadata bar - model and timestamp */}
-      {(message.model || formattedTime) && (
+      {/* Metadata bar - model, timestamp, and timings */}
+      {(message.model || formattedTime || timingDisplay) && (
         <div className="mb-3 flex items-center gap-2 text-xs text-muted-foreground">
           {message.model && (
             <span className="font-medium">{message.model}</span>
           )}
-          {message.model && formattedTime && (
+          {(message.model && (formattedTime || timingDisplay)) && (
             <span className="text-muted-foreground/60">•</span>
           )}
           {formattedTime && <span>{formattedTime}</span>}
+          {formattedTime && timingDisplay && (
+            <span className="text-muted-foreground/60">•</span>
+          )}
+          {timingDisplay && (
+            <div
+              className="relative inline-flex items-center gap-1 cursor-help"
+              onMouseEnter={() => setShowTimings(true)}
+              onMouseLeave={() => setShowTimings(false)}
+            >
+              <Clock className="h-3 w-3" />
+              <span>{timingDisplay}</span>
+              {showTimings && message.timings && (
+                <div className="absolute top-full left-0 mt-2 p-3 bg-popover border rounded-lg shadow-lg z-50 min-w-[200px]">
+                  <div className="space-y-1">
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Tokens:</span>
+                      <span className="font-medium">
+                        {message.timings.prompt_n}+{message.timings.predicted_n}
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Prompt time:</span>
+                      <span className="font-medium">{message.timings.prompt_ms}ms</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Generation time:</span>
+                      <span className="font-medium">{message.timings.predicted_ms}ms</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Cache hits:</span>
+                      <span className="font-medium">{message.timings.cache_n}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Speed:</span>
+                      <span className="font-medium">{message.timings.predicted_per_second.toFixed(1)} t/s</span>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       )}
+
       {/* Thinking section - Shows either stored thinking or streaming thinking */}
       {hasThinking && (
         <div className="mb-4">
